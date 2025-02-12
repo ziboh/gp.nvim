@@ -646,6 +646,8 @@ end
 ---@param toggle boolean # whether to toggle
 ---@return number # buffer number
 M.open_buf = function(file_name, target, kind, toggle)
+	vim.api.nvim_command("stopinsert")
+	M.helpers.feedkeys("<esc>", "xn")
 	target = target or M.BufTarget.current
 
 	-- close previous popup if it exists
