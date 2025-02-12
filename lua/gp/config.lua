@@ -320,6 +320,8 @@ local config = {
 	chat_free_cursor = false,
 	-- use prompt buftype for chats (:h prompt-buffer)
 	chat_prompt_buf_type = false,
+	-- reasoning prefix for chats
+	reasoning_prefix = "Reasoning",
 
 	-- how to display GpChatToggle or GpContext
 	---@type "popup" | "split" | "vsplit" | "tabnew"

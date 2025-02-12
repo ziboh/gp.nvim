@@ -221,7 +221,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		ns_id = nil,
 		ex_id = nil,
 	})
-
+	local ouotput_reasoning_prefix = false
 	local out_reader = function()
 		local buffer = ""
 
@@ -234,6 +234,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 
 			local lines = vim.split(lines_chunk, "\n")
 			for _, line in ipairs(lines) do
+				local reasoning = false
 				if line ~= "" and line ~= nil then
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
@@ -241,7 +242,14 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				local content = ""
 				if line:match("choices") and line:match("delta") and line:match("content") then
 					line = vim.json.decode(line)
-					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
+					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.reasoning_content then
+						content = line.choices[1].delta.reasoning_content
+						if not ouotput_reasoning_prefix then
+							content = "# " .. require("gp").config.reasoning_prefix .. "\n" .. content
+							ouotput_reasoning_prefix = true
+						end
+						reasoning = true
+					elseif line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
 						content = line.choices[1].delta.content
 					end
 				end
@@ -264,10 +272,9 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					end
 				end
 
-
 				if content and type(content) == "string" then
 					qt.response = qt.response .. content
-					handler(qid, content)
+					handler(qid, content, reasoning)
 				end
 			end
 		end
@@ -300,9 +307,19 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				end
 				local raw_response = qt.raw_response
 				local content = qt.response
-				if qt.provider == 'openai' and content == "" and raw_response:match('choices') and raw_response:match("content") then
+				if
+					qt.provider == "openai"
+					and content == ""
+					and raw_response:match("choices")
+					and raw_response:match("content")
+				then
 					local response = vim.json.decode(raw_response)
-					if response.choices and response.choices[1] and response.choices[1].message and response.choices[1].message.content then
+					if
+						response.choices
+						and response.choices[1]
+						and response.choices[1].message
+						and response.choices[1].message.content
+					then
 						content = response.choices[1].message.content
 					end
 					if content and type(content) == "string" then
@@ -310,7 +327,6 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 						handler(qid, content)
 					end
 				end
-
 
 				if qt.response == "" then
 					logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
@@ -392,8 +408,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		}
 	end
 
-	local temp_file = D.query_dir ..
-		"/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
+	local temp_file = D.query_dir .. "/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
 	helpers.table_to_file(payload, temp_file)
 
 	local curl_params = vim.deepcopy(D.config.curl_params or {})
@@ -445,7 +460,9 @@ end
 ---@param first_undojoin boolean | nil # whether to skip first undojoin
 ---@param prefix string | nil # prefix to insert before each response line
 ---@param cursor boolean # whether to move cursor to the end of the response
-D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
+---@param output_reasoning boolean | nil # whether to output reasoning content
+D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, output_reasoning)
+	output_reasoning = output_reasoning or true
 	buf = buf or vim.api.nvim_get_current_buf()
 	prefix = prefix or ""
 	local first_line = line or vim.api.nvim_win_get_cursor(win or 0)[1] - 1
@@ -463,7 +480,11 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	})
 
 	local response = ""
-	return vim.schedule_wrap(function(qid, chunk)
+	return vim.schedule_wrap(function(qid, chunk, is_reasoning)
+		is_reasoning = is_reasoning or false
+		if is_reasoning and not output_reasoning then
+			return
+		end
 		local qt = tasker.get_query(qid)
 		if not qt then
 			return
@@ -501,6 +522,9 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 		local lines = vim.split(response, "\n")
 		for i, l in ipairs(lines) do
 			lines[i] = prefix .. l
+			if is_reasoning then
+				lines[i] = "> " .. l
+			end
 		end
 
 		local unfinished_lines = {}
