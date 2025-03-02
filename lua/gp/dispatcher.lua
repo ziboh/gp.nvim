@@ -409,6 +409,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 	end
 
 	local temp_file = D.query_dir .. "/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
+	logger.debug(vim.inspect(payload))
 	helpers.table_to_file(payload, temp_file)
 
 	local curl_params = vim.deepcopy(D.config.curl_params or {})
@@ -462,7 +463,9 @@ end
 ---@param cursor boolean # whether to move cursor to the end of the response
 ---@param output_reasoning boolean | nil # whether to output reasoning content
 D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, output_reasoning)
-	output_reasoning = output_reasoning or true
+	if output_reasoning == nil then
+		output_reasoning = true
+	end
 	buf = buf or vim.api.nvim_get_current_buf()
 	prefix = prefix or ""
 	local first_line = line or vim.api.nvim_win_get_cursor(win or 0)[1] - 1
@@ -481,10 +484,13 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 
 	local response = ""
 	return vim.schedule_wrap(function(qid, chunk, is_reasoning)
-		is_reasoning = is_reasoning or false
+		if is_reasoning == nil then
+			is_reasoning = false
+		end
 		if is_reasoning and not output_reasoning then
 			return
 		end
+		print("Is not response")
 		local qt = tasker.get_query(qid)
 		if not qt then
 			return
@@ -516,6 +522,9 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 
 		-- append new response
 		response = response .. chunk
+		if not output_reasoning then
+			response = response:gsub("^\n+", "")
+		end
 		helpers.undojoin(buf)
 
 		-- prepend prefix to each line
