@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- Dispatcher handles the communication between the plugin and LLM providers.
+-- Dispatcher handles the communication between the plugin and LLM providers
 --------------------------------------------------------------------------------
 
 local logger = require("gp.logger")
@@ -490,7 +490,6 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		if is_reasoning and not output_reasoning then
 			return
 		end
-		print("Is not response")
 		local qt = tasker.get_query(qid)
 		if not qt then
 			return
@@ -524,6 +523,9 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		response = response .. chunk
 		if not output_reasoning then
 			response = response:gsub("^\n+", "")
+		end
+		if response == "" then
+			return
 		end
 		helpers.undojoin(buf)
 
