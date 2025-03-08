@@ -646,6 +646,8 @@ end
 ---@param toggle boolean # whether to toggle
 ---@return number # buffer number
 M.open_buf = function(file_name, target, kind, toggle)
+	vim.api.nvim_command("stopinsert")
+	M.helpers.feedkeys("<esc>", "xn")
 	target = target or M.BufTarget.current
 
 	-- close previous popup if it exists
@@ -1029,7 +1031,7 @@ M.chat_respond = function(params)
 	end
 	---@diagnostic disable-next-line: cast-local-type
 	agent_suffix = M.render.template(agent_suffix, { ["{{agent}}"] = agent_name })
-
+	local is_reasoning_content = false
 	local old_default_user_prefix = "🗨:"
 	for index = start_index, end_index do
 		local line = lines[index]
@@ -1045,6 +1047,12 @@ M.chat_respond = function(params)
 			table.insert(messages, { role = role, content = content })
 			role = "assistant"
 			content = ""
+		elseif line:sub(5, 4 + #M.config.reasoning_prefix) == M.config.reasoning_prefix then
+			is_reasoning_content = true
+		elseif line:sub(1, 1) == ">" and is_reasoning_content then
+		elseif line:sub(1, 1) ~= ">" and is_reasoning_content then
+			content = content .. "\n" .. line
+			is_reasoning_content = false
 		elseif role ~= "" then
 			content = content .. "\n" .. line
 		end
@@ -1115,7 +1123,7 @@ M.chat_respond = function(params)
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
-				local topic_handler = M.dispatcher.create_handler(topic_buf, nil, 0, false, "", false)
+				local topic_handler = M.dispatcher.create_handler(topic_buf, nil, 0, false, "", false, false)
 
 				-- call the model
 				M.dispatcher.query(
@@ -1125,7 +1133,13 @@ M.chat_respond = function(params)
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
-						local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
+						local topic_lines = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)
+						local topic = ""
+						for _, topic_content in ipairs(topic_lines) do
+							if topic_content ~= "" then
+								topic = topic_content
+							end
+						end
 						-- close invisible buffer
 						vim.api.nvim_buf_delete(topic_buf, { force = true })
 						-- strip whitespace from ends of topic
