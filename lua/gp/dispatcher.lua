@@ -481,7 +481,11 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		strict = false,
 		right_gravity = false,
 	})
+	local is_empty_buf = false
 
+	if first_line == 0 and #vim.api.nvim_buf_get_lines(buf, 0, 2, false) == 1 then
+		is_empty_buf = true
+	end
 	local response = ""
 	return vim.schedule_wrap(function(qid, chunk, is_reasoning)
 		if is_reasoning == nil then
@@ -532,9 +536,10 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		-- prepend prefix to each line
 		local lines = vim.split(response, "\n")
 		for i, l in ipairs(lines) do
-			lines[i] = prefix .. l
 			if is_reasoning then
-				lines[i] = "> " .. l
+				lines[i] = "> " .. prefix .. l
+			else
+				lines[i] = prefix .. l
 			end
 		end
 
@@ -547,7 +552,15 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 
 		local new_finished_lines = math.max(0, #lines - 1)
 		for i = finished_lines, new_finished_lines do
-			vim.api.nvim_buf_add_highlight(buf, qt.ns_id, hl_handler_group, first_line + i, 0, -1)
+			local line_content = vim.api.nvim_buf_get_lines(buf, first_line + i, first_line + i + 1, true)[1]
+			vim.api.nvim_buf_set_extmark(buf, qt.ns_id, first_line + i, 0, {
+				end_col = #line_content,
+				hl_group = hl_handler_group,
+				priority = 100,
+			})
+		end
+		if is_empty_buf then
+			vim.api.nvim_buf_set_lines(buf, -2, -1, false, {})
 		end
 		finished_lines = new_finished_lines
 
