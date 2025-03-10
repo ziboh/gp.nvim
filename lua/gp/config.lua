@@ -372,7 +372,6 @@ local config = {
 		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
 	template_command = "{{command}}",
 
-	commit_prompt_template = require("gp.defaults").commit_prompt_template,
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
 	-- Whisper costs $0.006 / minute (rounded to the nearest second)
 	-- by eliminating silence and speeding up the tempo of the recording
@@ -539,7 +538,7 @@ local config = {
 		end,
 
 		-- GpInspectLog for checking the log file
-		InspectLog = function(plugin, params)
+		InspectLog = function(plugin)
 			local log_file = plugin.config.log_file
 			local buffer = plugin.helpers.get_buffer(log_file)
 			if not buffer then
