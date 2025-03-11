@@ -13,6 +13,7 @@ local M = {
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
+	opts = {}, -- use defined configuration
 	defaults = require("gp.defaults"), -- some useful defaults
 	deprecator = require("gp.deprecator"), -- handle deprecated options
 	dispatcher = require("gp.dispatcher"), -- handle communication with LLM providers
@@ -54,6 +55,7 @@ M.setup = function(opts)
 		opts = {}
 	end
 
+	M.opts = opts
 	-- reset M.config
 	M.config = vim.deepcopy(config)
 
@@ -219,8 +221,10 @@ end
 
 ---@param update table | nil # table with options
 M.refresh_state = function(update)
-	local state_file = M.config.state_dir .. "/state.json"
+	local state_dir = M.opts.state_dir or M.config.state_dir
+	local state_file = state_dir .. "/state.json"
 	update = update or {}
+	local custom_state = M.opts.custom_state or M.config.custom_state
 
 	local old_state = vim.deepcopy(M._state)
 
@@ -251,6 +255,12 @@ M.refresh_state = function(update)
 
 	if not M._state.command_agent or not M.agents[M._state.command_agent] then
 		M._state.command_agent = M._command_agents[1]
+	end
+
+	for _, v in ipairs(custom_state) do
+		if not M._state[v] or not M.agents[M._state[v]] then
+			M._state[v] = M._chat_agents[1]
+		end
 	end
 
 	if M._state.last_chat and vim.fn.filereadable(M._state.last_chat) == 0 then
@@ -314,6 +324,24 @@ M.Target = {
 		return { type = 7, filetype = filetype }
 	end,
 }
+
+--- Set agent and persisting it
+---@param state string
+---@param agent string
+M.set_agent_state = function(state, agent)
+	local custom_state = vim.deepcopy(M.opts.custom_state or M.config.custom_state)
+	vim.list_extend(custom_state, { "chat_agent", "command_agent" })
+	if not vim.list_contains(custom_state, state) then
+		M.logger.warning("Unknown custom state: " .. state)
+		return
+	end
+	if not M.agents[agent] then
+		M.logger.warning("Unknown agent: " .. agent)
+		return
+	end
+	M.refresh_state({ [state] = agent })
+	M.logger.info(state .. " agent: " .. agent)
+end
 
 -- creates prompt commands for each target
 M.prepare_commands = function()
@@ -1587,6 +1615,29 @@ end
 ---@return table # { cmd_prefix, name, model, system_prompt, provider }
 M.get_chat_agent = function(name)
 	name = name or M._state.chat_agent
+	if M.agents[name] == nil then
+		M.logger.warning("Chat Agent " .. name .. " not found, using " .. M._state.chat_agent)
+		name = M._state.chat_agent
+	end
+	local template = M.config.command_prompt_prefix_template
+	local cmd_prefix = M.render.template(template, { ["{{agent}}"] = name })
+	local model = M.agents[name].model
+	local system_prompt = M.agents[name].system_prompt
+	local provider = M.agents[name].provider
+	M.logger.debug("getting chat agent: " .. name)
+	return {
+		cmd_prefix = cmd_prefix,
+		name = name,
+		model = model,
+		system_prompt = system_prompt,
+		provider = provider,
+	}
+end
+
+---@param name string
+---@return table # { cmd_prefix, name, model, system_prompt, provider }
+M.get_agent_from_state = function(name)
+	name = M._state[name]
 	if M.agents[name] == nil then
 		M.logger.warning("Chat Agent " .. name .. " not found, using " .. M._state.chat_agent)
 		name = M._state.chat_agent

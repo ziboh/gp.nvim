@@ -488,6 +488,9 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 	end
 	local response = ""
 	return vim.schedule_wrap(function(qid, chunk, is_reasoning)
+		if chunk == "" then
+			return
+		end
 		if is_reasoning == nil then
 			is_reasoning = false
 		end

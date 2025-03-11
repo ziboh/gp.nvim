@@ -88,6 +88,9 @@ local config = {
 	-- directory for persisting state dynamically changed by user (like model or persona)
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",
 
+	-- You can provide state preservation for agents with customized commands.
+	custom_state = {},
+
 	-- default agent names set during startup, if nil last used agent is used
 	default_command_agent = nil,
 	default_chat_agent = nil,

@@ -267,6 +267,7 @@ _H.create_user_command = function(cmd_name, cmd_func, completion, desc)
 	vim.api.nvim_create_user_command(cmd_name, cmd_func, {
 		nargs = "*",
 		range = true,
+		bang = true,
 		desc = desc or "Gp.nvim command",
 		complete = function(arg_lead, cmd_line, cursor_pos)
 			logger.debug(
