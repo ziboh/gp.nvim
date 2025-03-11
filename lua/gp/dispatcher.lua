@@ -564,6 +564,9 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		end
 		if is_empty_buf then
 			vim.api.nvim_buf_set_lines(buf, -2, -1, false, {})
+			if new_finished_lines > 0 then
+				is_empty_buf = false
+			end
 		end
 		finished_lines = new_finished_lines
 
