@@ -174,17 +174,15 @@ D.prepare_payload = function(messages, model, provider)
 		top_p = math.max(0, math.min(1, model.top_p or 1)),
 	}
 
-	if provider == "openai" and model.model:sub(1, 2) == "o1" then
+	if provider == "openai" and (model.model:find("gpt") or model.model:find("claude")) then
 		for i = #messages, 1, -1 do
 			if messages[i].role == "system" then
 				table.remove(messages, i)
 			end
 		end
-		-- remove max_tokens, top_p, temperature for o1 models. https://platform.openai.com/docs/guides/reasoning/beta-limitations
 		output.max_tokens = nil
 		output.temperature = nil
 		output.top_p = nil
-		output.stream = false
 	end
 
 	return output

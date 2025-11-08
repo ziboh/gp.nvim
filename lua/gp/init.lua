@@ -63,6 +63,9 @@ M.setup = function(opts)
 	local cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
 	local state_dir = opts.state_dir or M.config.state_dir
 	local openai_api_key = opts.openai_api_key or M.config.openai_api_key
+	if opts.openai_api_key == false then
+		openai_api_key = nil
+	end
 
 	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
 
@@ -479,6 +482,14 @@ end
 M.not_chat = function(buf, file_name)
 	file_name = vim.fn.resolve(file_name)
 	local chat_dir = vim.fn.resolve(M.config.chat_dir)
+
+	-- Normalize path separators to handle Windows mixed separators
+	local function normalize_path(path)
+		return string.gsub(path, "\\", "/")
+	end
+
+	file_name = normalize_path(file_name)
+	chat_dir = normalize_path(chat_dir)
 
 	if not M.helpers.starts_with(file_name, chat_dir) then
 		return "resolved file (" .. file_name .. ") not in chat dir (" .. chat_dir .. ")"
