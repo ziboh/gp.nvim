@@ -222,7 +222,6 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 	local ouotput_reasoning_prefix = false
 	local out_reader = function()
 		local buffer = ""
-
 		---@param lines_chunk string
 		local function process_lines(lines_chunk)
 			local qt = tasker.get_query(qid)
@@ -231,18 +230,24 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			end
 
 			local lines = vim.split(lines_chunk, "\n")
+			local content = ""
 			for _, line in ipairs(lines) do
 				local reasoning = false
 				if line ~= "" and line ~= nil then
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
-				local content = ""
 				if line:match("choices") and line:match("delta") and line:match("content") then
 					line = vim.json.decode(line)
-					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.reasoning_content then
+					if
+						line.choices[1]
+						and line.choices[1].delta
+						and line.choices[1].delta.reasoning_content
+						and (line.choices[1].delta.reasoning_content ~= "" and line.choices[1].delta.reasoning_content ~= vim.NIL)
+					then
 						content = line.choices[1].delta.reasoning_content
-						if not ouotput_reasoning_prefix then
+						logger.debug("reasoning_content:" .. content)
+						if not ouotput_reasoning_prefix and content:len() >= 1 then
 							content = "# " .. require("gp").config.reasoning_prefix .. "\n" .. content
 							ouotput_reasoning_prefix = true
 						end
@@ -270,9 +275,10 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					end
 				end
 
-				if content and type(content) == "string" then
+				if content and type(content) == "string" and content:len() >= 1 then
 					qt.response = qt.response .. content
 					handler(qid, content, reasoning)
+					content = ""
 				end
 			end
 		end
@@ -485,6 +491,9 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		is_empty_buf = true
 	end
 	local response = ""
+	local last_chunk_is_reasoning = false
+	local last_chunk = ""
+	local reasoning_exit = false
 	return vim.schedule_wrap(function(qid, chunk, is_reasoning)
 		if chunk == "" then
 			return
@@ -499,6 +508,14 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		if not qt then
 			return
 		end
+		if last_chunk_is_reasoning and not is_reasoning then
+			if last_chunk:sub(-1) ~= "\n" then
+				chunk = "\n\n" .. chunk
+				reasoning_exit = true
+			end
+		end
+		last_chunk_is_reasoning = is_reasoning
+		last_chunk = chunk
 		-- if buf is not valid, stop
 		if not vim.api.nvim_buf_is_valid(buf) then
 			return
@@ -537,13 +554,13 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		-- prepend prefix to each line
 		local lines = vim.split(response, "\n")
 		for i, l in ipairs(lines) do
-			if is_reasoning then
+			if is_reasoning or reasoning_exit then
 				lines[i] = "> " .. prefix .. l
 			else
 				lines[i] = prefix .. l
 			end
 		end
-
+		reasoning_exit = false
 		local unfinished_lines = {}
 		for i = finished_lines + 1, #lines do
 			table.insert(unfinished_lines, lines[i])
