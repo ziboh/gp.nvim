@@ -219,7 +219,6 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		ns_id = nil,
 		ex_id = nil,
 	})
-	local ouotput_reasoning_prefix = false
 	local out_reader = function()
 		local buffer = ""
 		---@param lines_chunk string
@@ -247,10 +246,6 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					then
 						content = line.choices[1].delta.reasoning_content
 						logger.debug("reasoning_content:" .. content)
-						if not ouotput_reasoning_prefix and content:len() >= 1 then
-							content = "# " .. require("gp").config.reasoning_prefix .. "\n" .. content
-							ouotput_reasoning_prefix = true
-						end
 						reasoning = true
 					elseif line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
 						content = line.choices[1].delta.content
@@ -508,6 +503,10 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 		if not qt then
 			return
 		end
+		-- add reasoning prefix to the first reasoning chunk
+		if is_reasoning and not last_chunk_is_reasoning then
+			chunk = "# " .. require("gp").config.reasoning_prefix .. "\n" .. chunk
+		end
 		if last_chunk_is_reasoning and not is_reasoning then
 			if last_chunk:sub(-1) ~= "\n" then
 				chunk = "\n\n" .. chunk
@@ -560,6 +559,7 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, outp
 				lines[i] = prefix .. l
 			end
 		end
+
 		reasoning_exit = false
 		local unfinished_lines = {}
 		for i = finished_lines + 1, #lines do
