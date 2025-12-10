@@ -325,6 +325,8 @@ local config = {
 	chat_prompt_buf_type = false,
 	-- reasoning prefix for chats
 	reasoning_prefix = "Reasoning",
+	-- whether to display reasoning content in chat windows
+	chat_show_reasoning = true,
 
 	-- how to display GpChatToggle or GpContext
 	---@type "popup" | "split" | "vsplit" | "tabnew"

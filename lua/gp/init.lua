@@ -1126,7 +1126,7 @@ M.chat_respond = function(params)
 		buf,
 		headers.provider or agent.provider,
 		M.dispatcher.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
-		M.dispatcher.create_handler(buf, win, M.helpers.last_content_line(buf), true, "", not M.config.chat_free_cursor),
+		M.dispatcher.create_handler(buf, win, M.helpers.last_content_line(buf), true, "", not M.config.chat_free_cursor, M.config.chat_show_reasoning),
 		vim.schedule_wrap(function(qid)
 			local qt = M.tasker.get_query(qid)
 			if not qt then
