@@ -462,7 +462,9 @@ end
 ---@param cursor boolean # whether to move cursor to the end of the response
 ---@param output_reasoning boolean | nil # whether to output reasoning content
 D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor, output_reasoning)
-	if output_reasoning == nil then
+	if vim.g.gp_chat_show_reasoning ~= nil then
+		output_reasoning = vim.g.gp_chat_show_reasoning
+	elseif output_reasoning == nil then
 		output_reasoning = require("gp").config.chat_show_reasoning
 	end
 	buf = buf or vim.api.nvim_get_current_buf()
